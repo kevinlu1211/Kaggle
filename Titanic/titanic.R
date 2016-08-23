@@ -1,186 +1,162 @@
-# importing the data files
+# Titanic Kaggle
+# import the libraries that are used
+library(rpart)
+library(randomForest)
+library(e1071)
+
+# First get the train and test set
 setwd("Documents/Data Science/Kaggle/Titanic")
 train <- read.csv("~/Documents/Data Science/Kaggle/Titanic/train.csv")
 test <- read.csv("~/Documents/Data Science/Kaggle/Titanic/test.csv")
+
+
+### DATA CLEANING & FEATURE ENGINEERING ###
+# First lets investigate the factors and maybe engineer some new features for prediction
 str(train)
 str(test)
 
-# see what percentage of passengers survived
-table(with(train, Survived))
-
-# better to use proportions
-prop.table(table(with(train, Survived)))
-
-# since ~61% of them die, predict that they all die
-test$Survived <- rep(0,nrow(test))
-
-submit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)
-write.csv(submit, file = "theyalldie.csv", row.names = F)
-
-# now lets see what it looks like when we have sex included
-str(train)
-
-# use prop.table to see what the proportion looks like
-# 1 is for summing rows, 2 is for summing columns
-prop.table(table(train$Sex, train$Survived), 1)
-
+# need to make the data frames have the same column to trainTest them
 test$Survived <- 0
+trainTest <- rbind(train,test)
+str(trainTest)
 
-# These are equivalent
-test$Survived[test$Sex == "female"] <- 1
-# test$Survived[which(test$Sex == "female")] <- 1
+# See that some extra information can be extracted from the data, such as the title of the passenger
 
-# create a new feature to create a Child column 
-train$Child <- 0
-train$Child[train$Age < 18] <- 1
+# Maybe the title of the passenger will be useful? Regardless let's create it as a new feature
+trainTest$Title <- sapply(as.character(trainTest$Name), FUN = function(x) {strsplit(x, split = '[,.]')[[1]][2]})
+trainTest$Title <- sub(' ', '', trainTest$Title)
 
-# breakdown of the subset of people that survived
-aggregate(Survived ~ Child + Sex, data=train, FUN=sum)
-
-# breakdown of the subset 
-aggregate(Survived ~ Child + Sex, data = train, FUN=length)
-
-# breakdown of the subset proportion
-aggregate(Survived ~ Child + Sex, data=train, FUN=function(x){sum(x)/length(x)})
-
-# fare breakdown for the number of passengers 
-aggregate(PassengerId ~ Fare, data = train, FUN=length)
-
-# create a new factor feature 
-train$Fare2 <- '30+'
-train$Fare2[train$Fare < 30 & train$Fare >= 20] <- '20-30'
-train$Fare2[train$Fare < 20 & train$Fare >= 10] <- '10-20'
-train$Fare2[train$Fare < 10] <- '<10'
-
-aggregate(Survived ~ Child + Sex + Pclass, data = train, FUN=function(x) {sum(x)/length(x)})
-aggregate(Survived ~ Child + Sex + Pclass, data = train, FUN=length)
-aggregate(Survived ~ Child + Sex + Pclass, data = train, FUN=sum)
-aggregate(PassengerId ~ Pclass + Fare2, data = train, FUN = length)
-
-test$Survived <- 0
-test$Survived[test$Pclass == 1 & test$Sex == 'female'] <- 1
-test$Survived[test$Pclass == 1 & test$Child == 1 & test$Sex == 'male'] <- 1
-test$Survived[test$Pclass == 2 & test$Sex == 'female'] <- 1
-test$Survived[test$Pclass == 2 & test$Child == 1 & test$Sex == 'male'] <- 1
-test$Survived[test$Pclass == 3 & test$Child == 1 & test$Sex == 'female'] <- 1
-
-submit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)
-write.csv(submit, file = "childSexPclass.csv", row.names =F)
-
-# although this would be more effective if we used a decision tree
-library(rpart) ; library(rattle) ; library(rpart.plot) ; library(RColorBrewer)
-fit <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = train, method = "class")
-prediction <- predict(fit, test, type = "class")
-submit <- data.frame(PassengerId = test$PassengerId, Survived = prediction)
-write.csv(submit, file = "decisionTree.csv", row.names = FALSE)
-
-# feature engineering 
-test$Survived <- NA
-train$Child <- NULL
-train$Fare2 <- NULL
-combi <- rbind(train,test)
-
-# cast the name factor into a string
-combi$Name <- as.character(combi$Name)
-combi$Name[1]
-
-# now split the string and find the titles for each passenger
-
-# method 1 use a for loop
-titles <- c()
-for (name in combi$Name) {
-  titles <- c(titles, strsplit(name, split = '[,.]')[[1]][2])
-}
-titles
-# method 2 use sapply
-titles <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][2]})
-combi$Title <- titles
-str(combi)
-combi$title <- NULL
-
-# strip the spaces
-combi$Title <- sub(' ', '', combi$Title)
+# See that there are many "rare" titles some of which are associated with people, aggregate these titles to avoid overfitting if the 
+# feature is actually used
+table(trainTest$Title)
 
 # now aggregate some of the rare title values
-combi$Title[combi$Title %in% c('Mme', 'Mlle')] <- 'Mlle'
-combi$Title[combi$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Sir'
-combi$title[combi$Title %in% c('Dona', 'Lady', 'the Countess', 'Jonkheer')] <- 'Lady'
-table(combi$Title)
+trainTest$Title[trainTest$Title %in% c('Mme', 'Mlle')] <- 'Mlle'
+trainTest$Title[trainTest$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Sir'
+trainTest$Title[trainTest$Title %in% c('Dona', 'Lady', 'the Countess', 'Jonkheer')] <- 'Lady'
+table(trainTest$Title)
+trainTest$title <- NULL
 
-# convert the strings back into factors
-combi$Title <- as.factor(combi$Title)
-table(combi$Title)
+# Make a fare factor column 
+summary(trainTest$Fare)
 
-# create familySize feature
-combi$FamilySize <- combi$SibSp + combi$Parch + 1
+trainTest$FareFactor <- "0"
+
+# As there is one person with NA for fare it will be imputed with a decision tree
+dt.fare <- rpart(Fare ~ Pclass + Sex + SibSp + Parch + FareFactor + Embarked + Title + Age ,
+                  data=trainTest[!is.na(trainTest$Fare),], 
+                  method="anova")
+trainTest$Fare[is.na(trainTest$Fare)] <- predict(dt.fare, trainTest[is.na(trainTest$Fare),])
+
+# From the Kaggle website we can see that SibSp means the number of siblings/spouses on board, and Parch is the number of parents/children on board
+# So create a new feature which is a family ID that records the number of total family members they have on board and the family name
+str(trainTest)
+trainTest$FamilySize <- trainTest$SibSp + trainTest$Parch + 1
 
 # create new familyID
-combi$Surname <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][1]})
-combi$FamilyID <- paste(as.character(combi$FamilySize), combi$Surname, sep="")
-combi$FamilyID[combi$FamilySize<=2] <-'Small' 
+trainTest$Surname <- sapply(as.character(trainTest$Name), FUN=function(x) {strsplit(x, split='[,.]')[[1]][1]})
+trainTest$FamilyID <- paste(as.character(trainTest$FamilySize), trainTest$Surname, sep="")
+trainTest$FamilyID[trainTest$FamilySize<=2] <-'Small' 
+
+
 # there are some families that have an ID of 3FamilyName, but only 1 occurance in the table, it might be because
 # people in the same family don't have the same surnames, but we ignore this fact
-
-
-table(combi$FamilyID)
-famIDs <- data.frame(table(combi$FamilyID))
+table(trainTest$FamilyID)
+famIDs <- data.frame(table(trainTest$FamilyID))
 
 # get all the small families by frequency calculated from SibSp + Parch + 1
 famIDs <- famIDs[famIDs$Freq <=2,]
 
 # make these families small as well, although we are losing information by disregarding their family members
-combi$FamilyID[combi$FamilyID %in% famIDs$Var1] <- 'Small'
-combi$FamilyID <- factor(combi$FamilyID)
+trainTest$FamilyID[trainTest$FamilyID %in% famIDs$Var1] <- 'Small'
+trainTest$FamilyID <- factor(trainTest$FamilyID)
 
-# define new train and test sets
-train <- combi[1:891,]
-test <- combi[-(1:891),]
+# Make 3 factor levels to capture the minimum ~ 1st quartile, 1st ~ 3rd quartile, 3rd quartile ~ max
+trainTest$FareFactor[trainTest$Fare <= 7.896] <- "Low"
+trainTest$FareFactor[trainTest$Fare > 7.896 & trainTest$Fare <= 31.28] <- "Medium"
+trainTest$FareFactor[trainTest$Fare > 31.28] <- "High"
 
-fit <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train, method = "class")
-prediction <- predict(fit, test, type = "class")
-submit <- data.frame(PassengerId = test$PassengerId, Survived = prediction)
-write.csv(submit, file = "decisionTree2.csv", row.names = FALSE)
-
-# get "predict" the people that don't have age with the decision tree
-Agefit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + Title + FamilySize,
-                data=combi[!is.na(combi$Age),], 
+# As we know that children are put onto the lifeboats first create a new feature for this
+trainTest$Child <- 0
+trainTest$Child[trainTest$Age < 18] <- 1
+which(!complete.cases(trainTest))
+str(trainTest)
+# See that we have some NA's for age, no problem we can impute these values by using a decision tree
+dt.age <- rpart(Age ~ Pclass + Sex + SibSp + Parch + FareFactor + FamilyID + Embarked + Title ,
+                data=trainTest[!is.na(trainTest$Age),], 
                 method="anova")
+trainTest$Age[is.na(trainTest$Age)] <- predict(dt.age, trainTest[is.na(trainTest$Age),])
 
-# clean the data so that randomForest library works
-combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age),])
-summary(combi$Embarked)
-combi$Embarked[which(combi$Embarked == '')] <- "S"
-combi$Fare[which(is.na(combi$Fare))] <- median(combi$Fare, na.rm = TRUE)
+# See that there are no incomplete cases now so proceed to split the data into train and set
+which(!complete.cases(trainTest))
+
+# get the newTrain data
+newTrain <- trainTest[1:891,]
+newTest <- trainTest[-(1:891),]
+dim(newTrain)
+dim(newTest)
 
 
-combi$FamilyID2 <- combi$FamilyID
-combi$FamilyID2 <- as.character(combi$FamilyID2)
-combi$FamilyID2[combi$FamilySize <= 3] <- 'Small'
-combi$FamilyID2 <- factor(combi$FamilyID2)
+### LOGISTIC REGRESSION ###
 
-train <- combi[1:891,]
-test <- combi[-(1:891),]
+# First test which factors are causal so we know what to use in our final model
+fit <- glm(Survived ~ Pclass + Sex + Age + FareFactor + FamilySize + Embarked, data = newTrain, family = "binomial")
+fit1 <- step(fit)
+# Hence we can determine that Pclass + Sex + Age + SibSp are the causal ones
+summary(fit1)
 
-# use a randomForest
-library(randomForest)
-fit <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare +
-                      Embarked + Title + FamilySize + FamilyID2,
-                    data=train, 
-                    importance=TRUE, 
-                    ntree=2000)
+logistic.regression <- function(train, test) {
+  fit <- glm(Survived ~ Pclass + Sex + Age + SibSp, data = train, family = "binomial")
+  actual <- array(test[,"Survived"])
+  predicted <- predict(fit, test, type = "response")
+  predicted[predicted < 0.5] <- 0
+  predicted[predicted >= 0.5] <- 1
+  correctCount <- 0
+  for(i in 1:length(predicted)) {
+    if(predicted[i] == actual[i]) {
+      correctCount <- correctCount + 1
+    }  
+  }
+  accuracy <- correctCount/nrow(testData)
+  return(accuracy)
+}
 
-Prediction <- predict(fit, test)
-submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
-write.csv(submit, file = "firstforest.csv", row.names = F)
+# Perform 10 fold cross validation
+crossValidate.Logistic <- function(k = 10, data, folds) {
+  accuracies <- c()
+  for(i in 1:k){
+    #Segment data by fold using the which() function 
+    testIndexes <- which(folds==i,arr.ind=TRUE)
+    testData <- newTrain[testIndexes, ]
+    trainData <- newTrain[-testIndexes, ]
+    fit <- logistic.regression(trainData, testData)
+    accuracy <- fit$accuracy
+    accuracies <- c(accuracies, accuracy)
+  }
+  print(accuracies)
+  return(mean(accuracies))
+}
 
-# use conditional inference trees 
-install.packages('party')
-library(party)
+folds <- cut(seq(1,nrow(newTrain)),breaks=10,labels=FALSE)
 
-fit <- cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare +
-                 Embarked + Title + FamilySize + FamilyID,
-               data = train, 
-               controls=cforest_unbiased(ntree=2000, mtry=3))
-Prediction <- predict(fit, test, OOB=TRUE, type = "response")
-submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
-write.csv(submit, file = "secondForest.csv", row.names = F)
+print(crossValidate.Logistic(10, newTrain, folds))
+
+# create a submission for Kaggle
+predicted <- predict(fit1, newTest, type = "response")
+predicted
+predicted[predicted < 0.5] <- 0
+predicted[predicted >= 0.5] <- 1
+
+submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
+submit
+write.csv(submit, file = "logisticRegression.R", row.names = F)
+
+### DECISION TREE ###
+
+
+
+
+
+
+
+
