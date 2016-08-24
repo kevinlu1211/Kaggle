@@ -82,7 +82,7 @@ trainTest$Child[trainTest$Age < 18] <- 1
 which(!complete.cases(trainTest))
 str(trainTest)
 # See that we have some NA's for age, no problem we can impute these values by using a decision tree
-dt.age <- rpart(Age ~ Pclass + Sex + SibSp + Parch + FareFactor + FamilyID + Embarked + Title ,
+dt.age <- rpart(Age ~ Pclass + Sex + SibSp + Parch + FareFactor + FamilyID + Embarked + Title + Child,
                 data=trainTest[!is.na(trainTest$Age),], 
                 method="anova")
 trainTest$Age[is.na(trainTest$Age)] <- predict(dt.age, trainTest[is.na(trainTest$Age),])
@@ -91,22 +91,14 @@ trainTest$Age[is.na(trainTest$Age)] <- predict(dt.age, trainTest[is.na(trainTest
 which(!complete.cases(trainTest))
 
 # get the newTrain data
-newTrain <- trainTest[1:891,]
-newTest <- trainTest[-(1:891),]
-dim(newTrain)
-dim(newTest)
-
+df <- data.frame(trainTest)
+df$FamilySize <- as.factor(df$FamilySize)
+train <- df[1:891,]
+test <- df[-(1:891),]
 
 ### LOGISTIC REGRESSION ###
 
-# First test which factors are causal so we know what to use in our final model
-fit <- glm(Survived ~ Pclass + Sex + Age + FareFactor + FamilySize + Embarked, data = newTrain, family = "binomial")
-fit1 <- step(fit)
-# Hence we can determine that Pclass + Sex + Age + SibSp are the causal ones
-summary(fit1)
-
-logistic.regression <- function(train, test) {
-  fit <- glm(Survived ~ Pclass + Sex + Age + SibSp, data = train, family = "binomial")
+crossValidate.Logistic <- function(test, fit) {
   actual <- array(test[,"Survived"])
   predicted <- predict(fit, test, type = "response")
   predicted[predicted < 0.5] <- 0
@@ -117,42 +109,75 @@ logistic.regression <- function(train, test) {
       correctCount <- correctCount + 1
     }  
   }
-  accuracy <- correctCount/nrow(testData)
+  print("Number of correct classifications:")
+  print(correctCount)
+  
+  print("Number of samples:")
+  print(nrow(test))
+  
+  accuracy <- correctCount/nrow(test)
   return(accuracy)
 }
-
-# Perform 10 fold cross validation
-crossValidate.Logistic <- function(k = 10, data, folds) {
-  accuracies <- c()
-  for(i in 1:k){
-    #Segment data by fold using the which() function 
-    testIndexes <- which(folds==i,arr.ind=TRUE)
-    testData <- newTrain[testIndexes, ]
-    trainData <- newTrain[-testIndexes, ]
-    fit <- logistic.regression(trainData, testData)
-    accuracy <- fit$accuracy
-    accuracies <- c(accuracies, accuracy)
-  }
-  print(accuracies)
-  return(mean(accuracies))
+kaggle.submit.logistic <- function(test, fit, fileName) {
+  predicted <- predict(fit, df[-(1:891),], type = "response")
+  predicted[predicted < 0.5] <- 0
+  predicted[predicted >= 0.5] <- 1
+  submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
+  write.csv(submit, file = paste(fileName,".csv",sep=""), row.names = F)
 }
 
-folds <- cut(seq(1,nrow(newTrain)),breaks=10,labels=FALSE)
+# Now split the train into a train and test fold
 
-print(crossValidate.Logistic(10, newTrain, folds))
+# randomize the data first
+train <- train[sample(nrow(train)),]
+
+# create the end index to split the train set
+endIndex <- as.integer(0.8 * nrow(train))
+train_train <- train[1:endIndex,]
+train_test <- train[-(1:endIndex),]
+
+# First test which factors are causal so we know what to use in our final model
+fit.logistic1 <- glm(Survived ~ Pclass + Sex + Child, data = train_train, family = "binomial")
+summary(fit.logistic1)
+
+# Step through the model and discard any insignificant variables
+fit.logistic2 <- step(fit.logistic1)
+summary(fit.logistic2)
+
+# see what the prediction of the model
+print(crossValidate.Logistic(train_test, fit.logistic2))
 
 # create a submission for Kaggle
-predicted <- predict(fit1, newTest, type = "response")
-predicted
-predicted[predicted < 0.5] <- 0
-predicted[predicted >= 0.5] <- 1
+kaggle.submit.logistic(test, fit.logistic2, "logisticRegression4")
 
-submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
-submit
-write.csv(submit, file = "logisticRegression.R", row.names = F)
+fit.logistic3 <- fit.logistic1 <- glm(Survived ~ Pclass + Sex + Child + FamilySize, data = train_train, family = "binomial")
+summary(fit.logistic3)
+fit.logistic4 <- step(fit.logistic3)
+summary(fit.logistic4)
+
+print(crossValidate.Logistic(train_test, fit.logistic4))
 
 ### DECISION TREE ###
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+fit <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train, method = "class")
 
 
 
