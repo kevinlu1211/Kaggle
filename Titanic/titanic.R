@@ -35,12 +35,18 @@ trainTest$Title[trainTest$Title %in% c('Mme', 'Mlle')] <- 'Mlle'
 trainTest$Title[trainTest$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Sir'
 trainTest$Title[trainTest$Title %in% c('Dona', 'Lady', 'the Countess', 'Jonkheer')] <- 'Lady'
 table(trainTest$Title)
-trainTest$title <- NULL
+trainTest$Title <- as.factor(trainTest$Title)
 
 # Make a fare factor column 
 summary(trainTest$Fare)
 
-trainTest$FareFactor <- "0"
+# Make 3 factor levels to capture the minimum ~ 1st quartile, 1st ~ 3rd quartile, 3rd quartile ~ max
+trainTest$FareFactor[trainTest$Fare <= 7.896] <- "Low"
+trainTest$FareFactor[trainTest$Fare > 7.896 & trainTest$Fare <= 31.28] <- "Medium"
+trainTest$FareFactor[trainTest$Fare > 31.28] <- "High"
+
+# Cast it into a factor 
+trainTest$FareFactor <- as.factor(trainTest$FareFactor)
 
 # As there is one person with NA for fare it will be imputed with a decision tree
 dt.fare <- rpart(Fare ~ Pclass + Sex + SibSp + Parch + FareFactor + Embarked + Title + Age ,
@@ -71,10 +77,7 @@ famIDs <- famIDs[famIDs$Freq <=2,]
 trainTest$FamilyID[trainTest$FamilyID %in% famIDs$Var1] <- 'Small'
 trainTest$FamilyID <- factor(trainTest$FamilyID)
 
-# Make 3 factor levels to capture the minimum ~ 1st quartile, 1st ~ 3rd quartile, 3rd quartile ~ max
-trainTest$FareFactor[trainTest$Fare <= 7.896] <- "Low"
-trainTest$FareFactor[trainTest$Fare > 7.896 & trainTest$Fare <= 31.28] <- "Medium"
-trainTest$FareFactor[trainTest$Fare > 31.28] <- "High"
+
 
 # As we know that children are put onto the lifeboats first create a new feature for this
 trainTest$Child <- 0
@@ -90,6 +93,33 @@ trainTest$Age[is.na(trainTest$Age)] <- predict(dt.age, trainTest[is.na(trainTest
 # See that there are no incomplete cases now so proceed to split the data into train and set
 which(!complete.cases(trainTest))
 
+
+# Check out the Cabin variable, but it seems like there are a lot samples that are missing the Cabin feature, and after understanding how the cabins where
+# the cabins were place it seems as if it is highly correlated with Pclass (which is a proxy for social-economic class) so adding Cabin wouldn't really help much
+# regardless I will try to see if it makes a difference
+table(trainTest$Cabin)
+aggregate(Survived ~ Cabin, data = trainTest, FUN=length)
+
+# But it does seem that people who don't have a Cabin assigned to them have a lower survival rate than 20% which means that we might be able to squeeze a bit more of 
+# the data
+aggregate(Survived ~ Cabin, data = trainTest, FUN=sum)
+
+# First turn the column into a string for easier manipulation
+trainTest$Cabin <- as.character(trainTest$Cabin)
+trainTest$Cabin[which(trainTest$Cabin == "")] <- "U"
+
+# Get rid of the spaces as we just want the first character
+trainTest$Cabin <- gsub(' ', '', trainTest$Cabin)
+table(trainTest$Cabin)
+
+# now grab the first letter
+trainTest$CabinLetter <- sapply(trainTest$Cabin, function(x) strsplit(x,split="")[[1]][1])
+trainTest$CabinLetter <- as.matrix(trainTest$CabinLetter)
+dim(trainTest$CabinLetter)
+
+# cast it back into a factor so that we can use it
+trainTest$CabinLetter <- as.factor(trainTest$CabinLetter)
+
 # get the newTrain data
 df <- data.frame(trainTest)
 df$FamilySize <- as.factor(df$FamilySize)
@@ -98,7 +128,7 @@ test <- df[-(1:891),]
 
 ### LOGISTIC REGRESSION ###
 
-crossValidate.Logistic <- function(test, fit) {
+crossValidate.logistic <- function(test, fit) {
   actual <- array(test[,"Survived"])
   predicted <- predict(fit, test, type = "response")
   predicted[predicted < 0.5] <- 0
@@ -119,7 +149,7 @@ crossValidate.Logistic <- function(test, fit) {
   return(accuracy)
 }
 kaggle.submit.logistic <- function(test, fit, fileName) {
-  predicted <- predict(fit, df[-(1:891),], type = "response")
+  predicted <- predict(fit, test, type = "response")
   predicted[predicted < 0.5] <- 0
   predicted[predicted >= 0.5] <- 1
   submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
@@ -137,28 +167,143 @@ train_train <- train[1:endIndex,]
 train_test <- train[-(1:endIndex),]
 
 # First test which factors are causal so we know what to use in our final model
-fit.logistic1 <- glm(Survived ~ Pclass + Sex + Child, data = train_train, family = "binomial")
-summary(fit.logistic1)
+fit.logistic <- glm(Survived ~ Pclass + Sex + Child, data = train_train, family = "binomial")
+summary(fit.logistic)
 
 # Step through the model and discard any insignificant variables
-fit.logistic2 <- step(fit.logistic1)
-summary(fit.logistic2)
+fit.logistic <- step(fit.logistic)
+summary(fit.logistic)
 
 # see what the prediction of the model
-print(crossValidate.Logistic(train_test, fit.logistic2))
+print(crossValidate.Logistic(train_test, fit.logistic))
 
 # create a submission for Kaggle
-kaggle.submit.logistic(test, fit.logistic2, "logisticRegression4")
+kaggle.submit.logistic(test, fit.logistic, "logisticRegression4")
 
-fit.logistic3 <- fit.logistic1 <- glm(Survived ~ Pclass + Sex + Child + FamilySize, data = train_train, family = "binomial")
-summary(fit.logistic3)
-fit.logistic4 <- step(fit.logistic3)
-summary(fit.logistic4)
+fit.logistic <- glm(Survived ~ Pclass + Sex + Child + FamilySize, data = train_train, family = "binomial")
+summary(fit.logistic)
+fit.logistic <- step(fit.logistic)
+summary(fit.logistic)
 
-print(crossValidate.Logistic(train_test, fit.logistic4))
+print(crossValidate.Logistic(train_test, fit.logistic))
+kaggle.submit.logistic(test, fit.logistic, "logisticRegression5")
+
+fit.logistic <- glm(Survived ~ Pclass + Sex + Child + FamilySize + Title + FareFactor, data = train_train, family = "binomial")
+summary(fit.logistic)
+
+fit.logistic <- step(fit.logistic)
+summary(fit.logistic)
+
+print(crossValidate.Logistic(train_test, fit.logistic))
+kaggle.submit.logistic(test, fit.logistic, "logisticRegression6")
+
+fit.logistic <- glm(Survived ~ Pclass + Sex + Child + FamilySize + Title + FareFactor + Embarked, data = train_train, family = "binomial")
+summary(fit.logistic)
+
+fit.logistic.stepped <- step(fit.logistic)
+summary(fit.logistic)
+
+# See that there isn't much of an improvement, but I noticed that there is a Cabin variable that I didn't use maybe I should engineer some new features from it
+print(crossValidate.Logistic(train_test, fit.logistic))
+
+fit.logistic <- glm(Survived ~ Pclass + Child + FamilySize + Sex + FareFactor, data = train_train, family = "binomial")
+summary(fit.logistic)
+
+# Check p-value of the model
+pchisq(943.08 - deviance(fit.logistic), 711-698, lower.tail = FALSE)
+
+fit.logistic.stepped <- step(fit.logistic)
+summary(fit.logistic)
+
+# See that the logistic regression has an accuracy that has capped around ~0.8
+print(crossValidate.Logistic(train_test, fit.logistic))
+
+# Use the new factor and see how it fares
+fit.logistic <- glm(Survived ~ Pclass + Sex + Age + FamilySize + CabinLetter, data = train_train, family = "binomial")
+summary(fit.logistic)
+
+fit.logistic.stepped <- step(fit.logistic)
+summary(fit.logistic.stepped)
+
+# Sees like there is an increase in the accuracy
+print(crossValidate.Logistic(train_test, fit.logistic.stepped))
+kaggle.submit.logistic(test, fit.logistic, "logisticRegression7")
+
 
 ### DECISION TREE ###
 
+crossValidate.decisionTree <- function(test, fit) {
+  actual <- array(test[,"Survived"])
+  predicted <- predict(fit, test, type = "class")
+  correctCount <- 0
+  for(i in 1:length(predicted)) {
+    if(predicted[i] == actual[i]) {
+      correctCount <- correctCount + 1
+    }  
+  }
+  print("Number of correct classifications:")
+  print(correctCount)
+  
+  print("Number of samples:")
+  print(nrow(test))
+  
+  accuracy <- correctCount/nrow(test)
+  return(accuracy)
+}
+
+kaggle.submit.decisionTree <- function(test, fit, fileName) {
+  predicted <- predict(fit, test, type = "class")
+  submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
+  write.csv(submit, file = paste(fileName,".csv",sep=""), row.names = F)
+}
+
+fit.dt <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train_train, method = "class")
+crossValidate.decisionTree(train_test, fit.dt)
+
+kaggle.submit.decisionTree(test, fit.dt, "decisionTree1")
+
+### TODO: mess around with the complexity parameter
+
+
+### RANDOM FORESTS ###
+
+crossValidate.randomForest <- function(test, fit) {
+  actual <- array(test[,"Survived"])
+  predicted <- predict(fit, test)
+  correctCount <- 0
+  for(i in 1:length(predicted)) {
+    if(predicted[i] == actual[i]) {
+      correctCount <- correctCount + 1
+    }  
+  }
+  print("Number of correct classifications:")
+  print(correctCount)
+  
+  print("Number of samples:")
+  print(nrow(test))
+  
+  accuracy <- correctCount/nrow(test)
+  return(accuracy)
+}
+
+fit.dt <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + FamilySize + FareFactor + Title + FamilyID,
+                    data=train_train, 
+                    importance=TRUE, 
+                    ntree=2000)
+
+print(crossValidate.randomForest(train_test, fit.dt))
+
+
+# use conditional inference trees 
+library(party)
+
+fit <- cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare +
+                 Embarked + Title + FamilySize + FamilyID,
+               data = train, 
+               controls=cforest_unbiased(ntree=2000, mtry=3))
+Prediction <- predict(fit, test, OOB=TRUE, type = "response")
+submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
+write.csv(submit, file = "secondForest.csv", row.names = F)
 
 
 
@@ -175,9 +320,6 @@ print(crossValidate.Logistic(train_test, fit.logistic4))
 
 
 
-
-
-fit <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train, method = "class")
 
 
 
