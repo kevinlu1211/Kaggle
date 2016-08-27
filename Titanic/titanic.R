@@ -297,11 +297,30 @@ print(crossValidate.randomForest(train_test, fit.dt))
 # use conditional inference trees 
 library(party)
 
+crossValidate.conditionalInferenceTrees <- function(test, fit) {
+  actual <- array(test[,"Survived"])
+  predicted <- predict(fit, test, OOB=TRUE, type = "response")
+  correctCount <- 0
+  for(i in 1:length(predicted)) {
+    if(predicted[i] == actual[i]) {
+      correctCount <- correctCount + 1
+    }  
+  }
+  print("Number of correct classifications:")
+  print(correctCount)
+  
+  print("Number of samples:")
+  print(nrow(test))
+  
+  accuracy <- correctCount/nrow(test)
+  return(accuracy)
+}
 fit <- cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare +
                  Embarked + Title + FamilySize + FamilyID,
                data = train, 
                controls=cforest_unbiased(ntree=2000, mtry=3))
 Prediction <- predict(fit, test, OOB=TRUE, type = "response")
+
 submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
 write.csv(submit, file = "secondForest.csv", row.names = F)
 
