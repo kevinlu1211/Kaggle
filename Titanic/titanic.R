@@ -69,14 +69,14 @@ trainTest$FamilyID[trainTest$FamilySize<=2] <-'Small'
 # people in the same family don't have the same surnames, but we ignore this fact
 table(trainTest$FamilyID)
 famIDs <- data.frame(table(trainTest$FamilyID))
-
+famIDs
 # get all the small families by frequency calculated from SibSp + Parch + 1
 famIDs <- famIDs[famIDs$Freq <=2,]
 
 # make these families small as well, although we are losing information by disregarding their family members
 trainTest$FamilyID[trainTest$FamilyID %in% famIDs$Var1] <- 'Small'
 trainTest$FamilyID <- factor(trainTest$FamilyID)
-
+table(trainTest$FamilyID)
 
 
 # As we know that children are put onto the lifeboats first create a new feature for this
@@ -231,6 +231,9 @@ kaggle.submit.logistic(test, fit.logistic, "logisticRegression7")
 
 
 ### DECISION TREE ###
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
 
 crossValidate.decisionTree <- function(test, fit) {
   actual <- array(test[,"Survived"])
@@ -257,13 +260,45 @@ kaggle.submit.decisionTree <- function(test, fit, fileName) {
   write.csv(submit, file = paste(fileName,".csv",sep=""), row.names = F)
 }
 
+# First vallina model with no use of cross validation and no use of complexity parameter and we have included high correlated features?
 fit.dt <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train_train, method = "class")
 crossValidate.decisionTree(train_test, fit.dt)
+summary(fit.dt)
+plotcp(fit.dt)
+fancyRpartPlot(fit.dt)
+# kaggle.submit.decisionTree(test, fit.dt, "decisionTree1")
 
-kaggle.submit.decisionTree(test, fit.dt, "decisionTree1")
+# Fit a full tree = 
+fit.dt <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + Embarked + Title + FamilySize + FamilyID, data = train_train, method = "class",
+                control = rpart.control(cp = 0, xval = 10))
+summary(fit.dt)
+plotcp(fit.dt)
+printcp(fit.dt)
+fancyRpartPlot(fit.dt)
+cps <- printcp(fit.dt)[,1]
 
-### TODO: mess around with the complexity parameter
+findBestCP <- function(cps, fit.dt) {
+  bestAccuracy <- 0
+  bestCP <- 0
+  for(cp in cps) {
+    fit.dt.pruned <- prune(fit.dt, cp = cp)
+    
+    # Compare the accuracy of un-pruned and pruned tree
+    
+    accuracy <- crossValidate.decisionTree(train_test, fit.dt.pruned)
+    if (accuracy > bestAccuracy) {
+      bestAccuracy <- accuracy
+      bestCP <- cp
+    }
+    print(paste("Accuracy of tree with cp:", cp))
+    print(accuracy)
+  }
+  return(list(accuracy=bestAccuracy, cp = bestCP))
+}
 
+best.dt.result <- findBestCP(cps, fit.dt)
+best.dt.result$accuracy
+best.dt.result$cp
 
 ### RANDOM FORESTS ###
 
@@ -319,8 +354,7 @@ fit <- cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare +
                  Embarked + Title + FamilySize + FamilyID,
                data = train, 
                controls=cforest_unbiased(ntree=2000, mtry=3))
-Prediction <- predict(fit, test, OOB=TRUE, type = "response")
-
+print(crossValidate.conditionalInferenceTrees(train_test, fit))
 submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
 write.csv(submit, file = "secondForest.csv", row.names = F)
 
