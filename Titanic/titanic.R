@@ -153,7 +153,7 @@ kaggle.submit.logistic <- function(test, fit, fileName) {
   predicted[predicted < 0.5] <- 0
   predicted[predicted >= 0.5] <- 1
   submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
-  write.csv(submit, file = paste(fileName,".csv",sep=""), row.names = F)
+  write.csv(submit, file = paste("Submissions/",fileName,".csv",sep=""), row.names = F)
 }
 
 # Now split the train into a train and test fold
@@ -257,9 +257,29 @@ crossValidate.decisionTree <- function(test, fit) {
 kaggle.submit.decisionTree <- function(test, fit, fileName) {
   predicted <- predict(fit, test, type = "class")
   submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
-  write.csv(submit, file = paste(fileName,".csv",sep=""), row.names = F)
+  write.csv(submit, file = paste("Submissions/",fileName,".csv",sep=""), row.names = F)
 }
 
+findBestCP <- function(cps, fit.dt) {
+  bestAccuracy <- 0
+  bestCP <- 0
+  bestFit <- NULL
+  for(cp in cps) {
+    fit.dt.pruned <- prune(fit.dt, cp = cp)
+    
+    # Compare the accuracy of un-pruned and pruned tree
+    
+    accuracy <- crossValidate.decisionTree(train_test, fit.dt.pruned)
+    if (accuracy > bestAccuracy) {
+      bestAccuracy <- accuracy
+      bestCP <- cp
+      bestFit <- fit.dt.pruned
+    }
+    print(paste("Accuracy of tree with cp:", cp))
+    print(accuracy)
+  }
+  return(list(accuracy=bestAccuracy, cp = bestCP, fit = bestFit))
+}
 # First vallina model with no use of cross validation and no use of complexity parameter and we have included high correlated features?
 fit.dt <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train_train, method = "class")
 crossValidate.decisionTree(train_test, fit.dt)
@@ -277,28 +297,13 @@ printcp(fit.dt)
 fancyRpartPlot(fit.dt)
 cps <- printcp(fit.dt)[,1]
 
-findBestCP <- function(cps, fit.dt) {
-  bestAccuracy <- 0
-  bestCP <- 0
-  for(cp in cps) {
-    fit.dt.pruned <- prune(fit.dt, cp = cp)
-    
-    # Compare the accuracy of un-pruned and pruned tree
-    
-    accuracy <- crossValidate.decisionTree(train_test, fit.dt.pruned)
-    if (accuracy > bestAccuracy) {
-      bestAccuracy <- accuracy
-      bestCP <- cp
-    }
-    print(paste("Accuracy of tree with cp:", cp))
-    print(accuracy)
-  }
-  return(list(accuracy=bestAccuracy, cp = bestCP))
-}
+
 
 best.dt.result <- findBestCP(cps, fit.dt)
 best.dt.result$accuracy
 best.dt.result$cp
+best.dt.result$fit
+kaggle.submit.decisionTree(test, best.dt.result$fit, "decisionTree2")
 
 ### RANDOM FORESTS ###
 
