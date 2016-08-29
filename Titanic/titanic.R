@@ -40,6 +40,12 @@ trainTest$Title <- as.factor(trainTest$Title)
 # Make a fare factor column 
 summary(trainTest$Fare)
 
+# As there is one person with NA for fare it will be imputed with a decision tree
+dt.fare <- rpart(Fare ~ Pclass + Sex + SibSp + Parch + FareFactor + Embarked + Title + Age ,
+                 data=trainTest[!is.na(trainTest$Fare),], 
+                 method="anova")
+trainTest$Fare[is.na(trainTest$Fare)] <- predict(dt.fare, trainTest[is.na(trainTest$Fare),])
+
 # Make 3 factor levels to capture the minimum ~ 1st quartile, 1st ~ 3rd quartile, 3rd quartile ~ max
 trainTest$FareFactor[trainTest$Fare <= 7.896] <- "Low"
 trainTest$FareFactor[trainTest$Fare > 7.896 & trainTest$Fare <= 31.28] <- "Medium"
@@ -48,11 +54,7 @@ trainTest$FareFactor[trainTest$Fare > 31.28] <- "High"
 # Cast it into a factor 
 trainTest$FareFactor <- as.factor(trainTest$FareFactor)
 
-# As there is one person with NA for fare it will be imputed with a decision tree
-dt.fare <- rpart(Fare ~ Pclass + Sex + SibSp + Parch + FareFactor + Embarked + Title + Age ,
-                  data=trainTest[!is.na(trainTest$Fare),], 
-                  method="anova")
-trainTest$Fare[is.na(trainTest$Fare)] <- predict(dt.fare, trainTest[is.na(trainTest$Fare),])
+
 
 # From the Kaggle website we can see that SibSp means the number of siblings/spouses on board, and Parch is the number of parents/children on board
 # So create a new feature which is a family ID that records the number of total family members they have on board and the family name
@@ -326,12 +328,12 @@ crossValidate.randomForest <- function(test, fit) {
   return(accuracy)
 }
 
-fit.dt <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + FamilySize + FareFactor + Title + FamilyID,
+fit.rf <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + FamilySize + FareFactor + Title + FamilyID ,
                     data=train_train, 
                     importance=TRUE, 
                     ntree=2000)
 
-print(crossValidate.randomForest(train_test, fit.dt))
+print(crossValidate.randomForest(train_test, fit.rf))
 
 
 # use conditional inference trees 
@@ -364,24 +366,73 @@ submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
 write.csv(submit, file = "secondForest.csv", row.names = F)
 
 
+### SUPPORT VECTOR MACHINES ###
+library(e1071)
 
+# Simple vanilla use of SVMs
+fit.svm <- svm(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + FamilySize + FamilyID + Child, data = train_train)
+predict(fit.svm, train_test)
 
+crossValidate.supportVectorMachine <- function(fit, test) {
+  actual <- array(test[,"Survived"])
+  predicted <- predict(fit, test)
+  correctCount <- 0
+  for(i in 1:length(predicted)) {
+    if(predicted[i] == actual[i]) {
+      correctCount <- correctCount + 1
+    }  
+  }
+  print("Number of correct classifications:")
+  print(correctCount)
+  
+  print("Number of samples:")
+  print(nrow(test))
+  
+  accuracy <- correctCount/nrow(test)
+  return(accuracy)
+}
 
+crossValidate.supportVectorMachine(fit.svm, train_test)
 
+# Now do some cross validation to find the best cost (default is 1)
+powers <- seq(-5, 5, 0.5)
+costs <- sapply(powers, FUN=function(x) 10^x)
 
+findBestCost <- function(costs, train, test) {
+  bestAccuracy <- 0
+  bestCost <- 0
+  bestFit <- NULL
+  for(cost in costs) {
+    fit.svm <- svm(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + FamilySize + FamilyID + Child, data = train, cost = cost)
+    
+    # Compare the accuracy of un-pruned and pruned tree
+    
+    accuracy <- crossValidate.supportVectorMachine(fit.svm,test)
+    if (accuracy > bestAccuracy) {
+      bestAccuracy <- accuracy
+      bestCost <- cost
+      bestFit <- fit.svm
+    }
+    print(paste("Accuracy of svm with cost:", cost))
+    print(accuracy)
+  }
+  return(list(accuracy=bestAccuracy, cost = bestCost, fit = bestFit))
+}
 
+best.svm.result <- findBestCost(costs, train_train, train_test)
 
+kaggle.submit.supportVectorMachine <- function(fit, test, fileName) {
+  predicted <- predict(fit, test)
+  print(length(predicted))
+  print(dim(test))
+  submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
+  write.csv(submit, file = paste("Submissions/",fileName,".csv",sep=""), row.names = F)
+}
 
-
-
-
-
-
-
-
-
-
-
+best.svm.result$fit
+kaggle.submit.supportVectorMachine(best.svm.result$fit, test, "svm1")
+predict(best.svm.result$fit, test)
+dim(test)
 
 
 
