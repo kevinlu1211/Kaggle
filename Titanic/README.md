@@ -1,7 +1,6 @@
 ### Currently working on:
 
-- Using the Caret library to do spot checking of different algorithms via: http://topepo.github.io/caret/training.html#custom   
-- Algorithms to be spot checked:
+1. Using the Caret library to do spot checking of different algorithms
 ⋅⋅* Gradient Boosted Machines via gbm library
 ⋅⋅* LASSO/Ridge Regression/Elastic Net via glmnet
 ⋅⋅* Decision Trees via rpart
