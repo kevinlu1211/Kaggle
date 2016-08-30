@@ -17,4 +17,4 @@
 - Use emsembles from [here](http://machinelearningmastery.com/machine-learning-ensembles-with-r/)
 
 ### Readings:
-- Read: http://freakonometrics.hypotheses.org/19874
+- Read [this](http://freakonometrics.hypotheses.org/19874) to get an basic understanding of boosting algorithms
