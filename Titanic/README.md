@@ -1,12 +1,12 @@
 ### Currently working on:
 
 1. Using the Caret library to do spot checking of different algorithms
-⋅⋅* Gradient Boosted Machines via gbm library
-⋅⋅* LASSO/Ridge Regression/Elastic Net via glmnet
-⋅⋅* Decision Trees via rpart
-⋅⋅* Random Forests via randomForest
-⋅⋅* Logistic Regression via glm() function
-⋅⋅* SVMs via e1071
+⋅⋅1. Gradient Boosted Machines via gbm library
+⋅⋅2. LASSO/Ridge Regression/Elastic Net via glmnet
+⋅⋅3. Decision Trees via rpart
+⋅⋅4. Random Forests via randomForest
+⋅⋅5. Logistic Regression via glm() function
+⋅⋅6. SVMs via e1071
 ---
 
 ### Todos:
