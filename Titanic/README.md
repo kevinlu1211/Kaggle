@@ -7,6 +7,7 @@
   4. Random Forests via [randomForest](https://cran.r-project.org/web/packages/randomForest/randomForest.pdf)
   5. Logistic Regression via glm() function in R
   6. SVMs via e1071
+
 ---
 
 ### Todos:
