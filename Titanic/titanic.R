@@ -1,5 +1,6 @@
 # Titanic Kaggle
 # import the libraries that are used
+library(caret)
 library(rpart)
 library(randomForest)
 library(e1071)
@@ -41,7 +42,7 @@ trainTest$Title <- as.factor(trainTest$Title)
 summary(trainTest$Fare)
 
 # As there is one person with NA for fare it will be imputed with a decision tree
-dt.fare <- rpart(Fare ~ Pclass + Sex + SibSp + Parch + FareFactor + Embarked + Title + Age ,
+dt.fare <- rpart(Fare ~ Pclass + Sex + SibSp + Parch + Embarked + Title + Age ,
                  data=trainTest[!is.na(trainTest$Fare),], 
                  method="anova")
 trainTest$Fare[is.na(trainTest$Fare)] <- predict(dt.fare, trainTest[is.na(trainTest$Fare),])
@@ -128,6 +129,17 @@ df$FamilySize <- as.factor(df$FamilySize)
 train <- df[1:891,]
 test <- df[-(1:891),]
 
+# Now split the train into a train and test fold
+
+# randomize the data first
+train <- train[sample(nrow(train)),]
+
+# create the end index to split the train set
+endIndex <- as.integer(0.8 * nrow(train))
+train_train <- train[1:endIndex,]
+train_test <- train[-(1:endIndex),]
+
+
 ### LOGISTIC REGRESSION ###
 
 crossValidate.logistic <- function(test, fit) {
@@ -158,15 +170,6 @@ kaggle.submit.logistic <- function(test, fit, fileName) {
   write.csv(submit, file = paste("Submissions/",fileName,".csv",sep=""), row.names = F)
 }
 
-# Now split the train into a train and test fold
-
-# randomize the data first
-train <- train[sample(nrow(train)),]
-
-# create the end index to split the train set
-endIndex <- as.integer(0.8 * nrow(train))
-train_train <- train[1:endIndex,]
-train_test <- train[-(1:endIndex),]
 
 # First test which factors are causal so we know what to use in our final model
 fit.logistic <- glm(Survived ~ Pclass + Sex + Child, data = train_train, family = "binomial")
@@ -405,7 +408,7 @@ findBestCost <- function(costs, train, test) {
   for(cost in costs) {
     fit.svm <- svm(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + FamilySize + FamilyID + Child, data = train, cost = cost)
     
-    # Compare the accuracy of un-pruned and pruned tree
+    # Compare the accuracy of svms with different costs
     
     accuracy <- crossValidate.supportVectorMachine(fit.svm,test)
     if (accuracy > bestAccuracy) {
@@ -423,16 +426,20 @@ best.svm.result <- findBestCost(costs, train_train, train_test)
 
 kaggle.submit.supportVectorMachine <- function(fit, test, fileName) {
   predicted <- predict(fit, test)
-  print(length(predicted))
-  print(dim(test))
   submit <- data.frame(PassengerId = test$PassengerId, Survived = predicted)
   write.csv(submit, file = paste("Submissions/",fileName,".csv",sep=""), row.names = F)
 }
 
-best.svm.result$fit
-kaggle.submit.supportVectorMachine(best.svm.result$fit, test, "svm1")
-predict(best.svm.result$fit, test)
-dim(test)
+best.result.svm <- findBestCost(costs, train_train, train_test)
 
+fit.svm <- svm(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + FamilySize + FamilyID + Child, data = train, cost = best.result.svm$cost)
+kaggle.submit.supportVectorMachine(fit.svm, test, "svm1")
 
+### Use the Caret Library for spot checking ###
 
+### Create a new train/test from the original train set
+inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
+inTraining
+
+train_train <- train[inTraining,]
+train_test <- train[-inTraining,]
