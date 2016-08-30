@@ -11,7 +11,8 @@
   3. Decision Trees using [rpart](https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf)
   4. Random Forests using [randomForest](https://cran.r-project.org/web/packages/randomForest/randomForest.pdf)
   5. Logistic Regression via glm() function in R
-  6. SVMs via e1071
+  6. SVMs from [e1071](https://cran.r-project.org/web/packages/e1071/e1071.pdf
+
 
 ---
 
