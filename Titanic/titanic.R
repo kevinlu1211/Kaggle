@@ -435,11 +435,3 @@ best.result.svm <- findBestCost(costs, train_train, train_test)
 fit.svm <- svm(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + FamilySize + FamilyID + Child, data = train, cost = best.result.svm$cost)
 kaggle.submit.supportVectorMachine(fit.svm, test, "svm1")
 
-### Use the Caret Library for spot checking ###
-
-### Create a new train/test from the original train set
-inTraining <- createDataPartition(train$Survived, p = .75, list = FALSE)
-inTraining
-
-train_train <- train[inTraining,]
-train_test <- train[-inTraining,]
