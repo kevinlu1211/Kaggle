@@ -1,7 +1,7 @@
 ### Files:
 - There are currently two files
-1. titanic.R is where I use the algorithms from the library (instead of caret) so that I have a better understanding of how the library works; while doing this I will also read up on the machine learning methods used and try to deepen my understanding of these methods
-2. caretTitanic.R is where I use the caret library to access different machine learning methods so that I can get a high level understanding of how the library works; whereby later I will be able to use these libraries in my titanic.R file to get a more thorough understanding
+  1. titanic.R is where I use the algorithms from the library (instead of caret) so that I have a better understanding of how the library works; while doing this I will also read up on the machine learning methods used and try to deepen my understanding of these methods
+  2. caretTitanic.R is where I use the caret library to access different machine learning methods so that I can get a high level understanding of how the library works; whereby later I will be able to use these libraries in my titanic.R file to get a more thorough understanding
 
 ### Currently working on:
 
