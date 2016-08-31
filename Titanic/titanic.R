@@ -125,7 +125,13 @@ trainTest$CabinLetter <- as.factor(trainTest$CabinLetter)
 
 # get the newTrain data
 df <- data.frame(trainTest)
+
+# Convert the features to factors
 df$FamilySize <- as.factor(df$FamilySize)
+df$Pclass <- as.factor(df$Pclass)
+df$Survived <- as.factor(df$Survived)
+df$Child <- as.factor(df$Survived)
+
 train <- df[1:891,]
 test <- df[-(1:891),]
 
@@ -434,4 +440,8 @@ best.result.svm <- findBestCost(costs, train_train, train_test)
 
 fit.svm <- svm(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + FareFactor + FamilySize + FamilyID + Child, data = train, cost = best.result.svm$cost)
 kaggle.submit.supportVectorMachine(fit.svm, test, "svm1")
+
+### Linear Discriminant Analysis ###
+
+
 
