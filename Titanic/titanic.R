@@ -443,5 +443,5 @@ kaggle.submit.supportVectorMachine(fit.svm, test, "svm1")
 
 ### Linear Discriminant Analysis ###
 
-
-
+lda.fit <- lda(Survived ~ as.numeric(Pclass) + Age, as.numeric(FamilySize), data = train_train)
+?lda
