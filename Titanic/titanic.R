@@ -443,5 +443,39 @@ kaggle.submit.supportVectorMachine(fit.svm, test, "svm1")
 
 ### Linear Discriminant Analysis ###
 
-lda.fit <- lda(Survived ~ as.numeric(Pclass) + Age, as.numeric(FamilySize), data = train_train)
-?lda
+library(MASS)
+# As we can only use continuous variables for LDA (due to the assumption that the feature set for each observation are from a multivariable normal distribution)
+lda.fit <- lda(Survived ~ as.numeric(Pclass) + Age + as.numeric(FamilySize), data = train_train)
+
+# helper function for cross validation
+crossValidate.lda<- function(fit, test) {
+  actual <- array(test[,"Survived"])
+  predicted <- predict(fit, test)$class
+  correctCount <- 0
+  for(i in 1:length(predicted)) {
+    if(predicted[i] == actual[i]) {
+      correctCount <- correctCount + 1
+    }  
+  }
+  print("Number of correct classifications:")
+  print(correctCount)
+  
+  print("Number of samples:")
+  print(nrow(test))
+  
+  accuracy <- correctCount/nrow(test)
+  return(accuracy)
+}
+
+# get the means of the predictor variables
+lda.fit$means
+
+# from ?lda: a matrix which transforms observations to discriminant functions, normalized so that within groups covariance matrix is spherical.
+# need to understand this 
+lda.fit$scaling
+
+# get the singular values, which is the ratio of the between and within group SDs for each linear discriminant variable
+lda.fit$svd
+
+print(crossValidate.lda(lda.fit, train_test))
+

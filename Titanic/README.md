@@ -1,8 +1,8 @@
 ### Currently working on:
 
 - Implementing different methods to predict for the Titanic data set
-  1. ~~Linear Discriminant Analysis via lda() function in R~~ 31/08/16 unable to use LDA due to categorial predictor variables
-    * Implement LDA and use just the continuous variables for prediction
+  1. ~~Linear Discriminant Analysis via lda() function in R~~ 31/08/16 
+     * ~~Implement LDA and use just the continuous variables for prediction~~ 6/9/16
   2. LASSO/Ridge Regression/Elastic Net using [glmnet](https://cran.r-project.org/web/packages/glmnet/glmnet.pdf)
   3. ~~Read/Implement Decision Trees using [rpart](https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf)~~ 20/08/16
   4. ~~Read/Implement Random Forests using [randomForest](https://cran.r-project.org/web/packages/randomForest/randomForest.pdf)~~ 23/08/16
@@ -12,8 +12,3 @@
   8. Use Neural Networks from [here](http://www.parallelr.com/r-deep-neural-network-from-scratch/)
   9. Use emsembles from [here](http://machinelearningmastery.com/machine-learning-ensembles-with-r/)
 
-
-----
-
-### Readings:
-- Read [this](http://freakonometrics.hypotheses.org/19874) to get an basic understanding of boosting algorithms
