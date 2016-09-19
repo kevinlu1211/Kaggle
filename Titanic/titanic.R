@@ -467,7 +467,7 @@ crossValidate.lda<- function(fit, test) {
   return(accuracy)
 }
 
-# get the means of the predictor variables
+# get the means of the predictor variables, remembering that this is a p dimension vector
 lda.fit$means
 
 # from ?lda: a matrix which transforms observations to discriminant functions, normalized so that within groups covariance matrix is spherical.
