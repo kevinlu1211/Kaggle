@@ -68,9 +68,9 @@ new.virginica <- mvrnorm(n, virginica.mean, virginica.cov)
 
 # Use the predict function that does the mapping for us (note here that the predict function simply maps
 # the new.* data to the new coordinates as defined by the scaled covariance matrix of the initial training data)
-pred.setosa <- predict(pca, new.setosa)
-pred.versicolor <- predict(pca, new.versicolor)
-pred.virginica <- predict(pca, new.virginica)
+pred.setosa <- data.frame(predict(pca, new.setosa))
+pred.versicolor <- data.frame(predict(pca, new.versicolor))
+pred.virginica <- data.frame(predict(pca, new.virginica))
 
 # Now to do it by "hand"
 
@@ -89,10 +89,124 @@ new.setosa.projected[1,]
 pred.setosa[1,]
 
 # Recap on what we have done:
-# 1. Used the pca function to find the eigenvectors needed for the change of basis of coordinates
-# 2. Used the predict function of prcomp to map new testing data to the new coordinates
+# 1. Used the pca function (and also did it by "hand") to find the eigenvectors needed for the change of basis of coordinates
+# 2. Used the predict function (and also did it by "hand") of prcomp to map new testing data to the new coordinates
 
-# Now lets see how we can use PCA for dimensionality reduction
+# Now we are finally read to see how we can use PCA for dimensionality reduction
 
-# First 
+# First lets use the iris data to train the LDA model
+str(iris)
+lda <- lda(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris)
+lda$means
+
+# Predict on the test data
+pred.setosa <- predict(lda, data.frame(new.setosa))$class
+pred.versicolor <- predict(lda, data.frame(new.versicolor))$class 
+pred.virginica <- predict(lda, data.frame(new.virginica))$class
+
+# see the accuracy
+acc.setosa <- length(which(pred.setosa == "setosa"))/length(pred.setosa)
+acc.versicolor <- length(which(pred.versicolor == "versicolor"))/length(pred.versicolor)
+acc.virginica <- length(which(pred.virginica == "virginica"))/length(pred.virginica)
+
+# Now lets create a LDA on the projected version of the iris data set
+pca <- prcomp(dat, retx = TRUE, center = TRUE, scale = TRUE)
+summary(pca)
+
+# We see here that the first 2 components give us ~96% of the data's variation
+pc.use = 2
+
+# Now lets project the iris data onto our new axis, and create a non-truncated version and a truncated version
+iris.projected <- data.frame(predict(pca, iris))
+head(iris.projected)
+iris.projected.truncated <- data.frame(predict(pca,iris)[,1:pc.use])
+head(iris.projected.truncated)
+
+# Add the species to it
+iris.projected$Species <- iris$Species
+iris.projected.truncated$Species <- iris$Species
+
+# Now lets finally create LDA on the new projected space, note here that we only use the first 2 components
+lda.projected <- lda(Species ~ PC1 + PC2, data = iris.projected)
+lda.projected$mean
+
+# Note how these two models are equivalent
+lda.projected <- lda(Species ~ ., data = iris.projected.truncated)
+lda.projected$mean
+
+# Now lets see how the predictions fair, first we have to project our test data onto the new coordinates
+setosa.projected <- data.frame(predict(pca, new.setosa))
+versicolor.projected <- data.frame(predict(pca, new.versicolor))
+virginica.projected <- data.frame(predict(pca, new.virginica))
+
+# Now predict the class
+pred.setosa.projected <- predict(lda.projected, setosa.projected)$class
+pred.versicolor.projected <- predict(lda.projected, versicolor.projected)$class
+pred.virginica.projected <- predict(lda.projected, virginica.projected)$class
+
+# see the accuracy
+acc.setosa <- length(which(pred.setosa.projected == "setosa"))/length(pred.setosa.projected) # accuracy of 1
+acc.versicolor <- length(which(pred.versicolor.projected == "versicolor"))/length(pred.versicolor.projected) # accuracy of 0.766
+acc.virginica <- length(which(pred.virginica.projected == "virginica"))/length(pred.virginica.projected) # accuracy of 0.9
+
+# ------------------------------------------------------------------------------------ #
+
+# Lets see what happens if we create an LDA model on all of the data
+lda.projected.all <- lda(Species ~. ,data = iris.projected)
+
+# predict class of our test data using all the principle component or in other words, not doing any dimensionality reduction
+pred.setosa.projected.all <- predict(lda.projected.all, setosa.projected)$class
+pred.versicolor.projected.all <- predict(lda.projected.all, versicolor.projected)$class
+pred.virginica.projected.all <- predict(lda.projected.all, virginica.projected)$class
+
+# see the accuracy
+acc.setosa.all <- length(which(pred.setosa.projected.all == "setosa"))/length(pred.setosa.projected.all) # accuracy of 1
+acc.versicolor.all <- length(which(pred.versicolor.projected.all == "versicolor"))/length(pred.versicolor.projected.all) # accuracy of 1
+acc.virginica.all <- length(which(pred.virginica.projected.all == "virginica"))/length(pred.virginica.projected.all) # accuracy of 1
+
+# ------------------------------------------------------------------------------------ #
+
+# Lets see what happens if we just use any two variable without the change of basis
+
+# Use only length
+lda.length.only <- lda(Species ~ Sepal.Length + Petal.Length , data = iris)
+
+# Predict on the test data
+pred.setosa.length.only <- predict(lda.length.only, data.frame(new.setosa))$class
+pred.versicolor.length.only <- predict(lda.length.only, data.frame(new.versicolor))$class 
+pred.virginica.length.only <- predict(lda.length.only, data.frame(new.virginica))$class
+
+# see the accuracy
+acc.setosa.length.only <- length(which(pred.setosa.length.only == "setosa"))/length(pred.setosa.length.only) # accuracy of 1
+acc.versicolor.length.only <- length(which(pred.versicolor.length.only == "versicolor"))/length(pred.versicolor.length.only) # accuracy of 0.933
+acc.virginica.length.only <- length(which(pred.virginica.length.only == "virginica"))/length(pred.virginica.length.only) # accuracy of 0.933
+
+# Use only sepal
+lda.sepal.only <- lda(Species ~ Sepal.Length + Sepal.Width , data = iris)
+
+# Predict on the test data
+pred.setosa.sepal.only <- predict(lda.sepal.only, data.frame(new.setosa))$class
+pred.versicolor.sepal.only <- predict(lda.sepal.only, data.frame(new.versicolor))$class 
+pred.virginica.sepal.only <- predict(lda.sepal.only, data.frame(new.virginica))$class
+
+# see the accuracy
+acc.setosa.sepal.only <- length(which(pred.setosa.sepal.only == "setosa"))/length(pred.setosa.sepal.only) # accuracy of 1
+acc.versicolor.sepal.only <- length(which(pred.versicolor.sepal.only == "versicolor"))/length(pred.versicolor.sepal.only) # accuracy of 0.667
+acc.virginica.sepal.only <- length(which(pred.virginica.sepal.only == "virginica"))/length(pred.virginica.sepal.only) # accuracy of 0.7667
+
+# Use only width
+lda.width.only <- lda(Species ~ Petal.Width + Sepal.Width , data = iris)
+
+# Predict on the test data
+pred.setosa.width.only <- predict(lda.width.only, data.frame(new.setosa))$class
+pred.versicolor.width.only <- predict(lda.width.only, data.frame(new.versicolor))$class 
+pred.virginica.width.only <- predict(lda.width.only, data.frame(new.virginica))$class
+
+# see the accuracy
+acc.setosa.width.only <- length(which(pred.setosa.width.only == "setosa"))/length(pred.setosa.width.only) # accuracy of 1
+acc.versicolor.width.only <- length(which(pred.versicolor.width.only == "versicolor"))/length(pred.versicolor.width.only) # accuracy of 1
+acc.virginica.width.only <- length(which(pred.virginica.width.only == "virginica"))/length(pred.virginica.width.only) # accuracy of 0.9
+
+
+
 
