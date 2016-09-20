@@ -85,7 +85,3 @@ if(res$center != FALSE){
   trunc <- scale(trunc, center = -1 * res$center, scale=FALSE)
 }
 
-# We see here that we are able to store data from 50 dimensions into 3 dimensions, but only lose ~7% of the information
-
-# Using PCA for dimensionality reduction
-
