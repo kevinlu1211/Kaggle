@@ -28,16 +28,41 @@ head(dat)
 # The consequence of this that in ISL: 
 # lower cost C_{ISL} => lower total error => Minimum margin between the support vectors decreases
 #
-# because the constraint for the margin is:
+# because the constraint to maximize the margin M, is such that for each sample_i
 #
-# y_i * (b_0 + b_1*x_{i1} + ... b_p*x{ip}) >= M(1-error_i) where M is the margin (1.1)
+# y_i * (b_0 + b_1*x_{i1} + ... b_p*x{ip}) >= M(1-error_i), sum_error_i < C, and error_i >= 0 (1.1)
+#
+# where: M is the margin (the distance between the support vector(s))
+#        error_i is the error of sample_i or how far away it is from the support vector of it's own class
+#
+# An interesting thing to note here is that y_i * (b_0 + b_1 * x_{i1} + ... {b_p * x{ip}) will usually be positive since the signs of the terms are usually the same
+# (assuming the classifier doesn't misclassify the sample_i), hence we can see a few things about what the error term does.
+#
+#        note here that:
+#        - If error_i = 0, then it means that the sample_i didn't cross the support vector of their class or in other words, they aren't in the margin (case 1)
+#        - If 0 < error_i < 1, then it means that sample_i is in between the support vectors of the two classes or in other words they are in the margin between (case 2)
+#        - If error_i > 1, the first thing to see is that M(1-error_i) would be negative, what this means is that the signs of y_i and b_0 + b_1*x_{i1} + ... b_p*x{ip}
+#          are different => the classifier has predicted wrongly. This means that sample_i is on the side of the wrong hyperplane (case 3)
+#
+#       Assuming that the correct classification is y = 1
+#
+#             y = -1                 y = 1
+#               |          |           |        .
+#  support                 |                 (case 1)
+#   vector   -->|          |       .   |  <- support vector
+#                      .   |   (case 2)
+#               | (case 3) |           |
+#                          | <- separating hyperplane
+#     .         |          |           |
+# (also case 3)            |
 #
 # If the cost C is low (remember that C is the sum of all error_i), then it means that M must be small so that the constraint is satisfied
 # To understand this lets take the most extreme case: 
-# Imagine that we have a cost C = number of samples in the training set 
+# Imagine that we have a cost C = inf
 # What this means is that, regardless of what value the margin M takes, we are able to pick an error that allows the 
-# constraint (1.1) to be satisfied since we can just set error_i to 1 meaning that M(1-error_i) will always be 0 regardless.
-# 
+# constraint (1.1) to be satisfied since we can just set error_i to inf, and therefore regardless of what value the margin M is
+# y_i * (b_0 + b_1 * x_{i1} + ... {b_p * x{ip}) >= M (1 - error_i) is always true 
+#
 # Hence the effect of the cost C_{e1071} used in svm() has that:
 # As C_{e1071} decreases, C_{ISL} increases, therefore:
 # lower cost C_{e1071} =>  higher cost C_{ISL} => higher total allowable error => Minimum margin between the support vectors increases

@@ -1,5 +1,6 @@
 ### Support Vector Machine ###
 library(ggplot2)
+library(e1071)
 set.seed (1)
 x=matrix(rnorm(200*2), ncol=2)
 
@@ -47,7 +48,6 @@ dim(dat[-train.index,])
 table(true=dat[-train.index,"y"], pred=predict(tune.out$best.model, dat[-train.index ,]))
 
 # Now lets plot the ROC Curves
-install.packages("ROCR")
 library(ROCR)
 rocplot <- function(pred,truth,...) {
   predob <- prediction(pred, truth)
