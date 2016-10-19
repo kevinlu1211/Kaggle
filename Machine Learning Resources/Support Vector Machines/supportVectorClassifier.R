@@ -61,7 +61,7 @@ head(dat)
 # Imagine that we have a cost C = inf
 # What this means is that, regardless of what value the margin M takes, we are able to pick an error that allows the 
 # constraint (1.1) to be satisfied since we can just set error_i to inf, and therefore regardless of what value the margin M is
-# y_i * (b_0 + b_1 * x_{i1} + ... {b_p * x{ip}) >= M (1 - error_i) is always true 
+# y_i * (b_0 + b_1 * x_{i1} + ... {b_p * x{ip}) >= M (1 - error_i) is always true
 #
 # Hence the effect of the cost C_{e1071} used in svm() has that:
 # As C_{e1071} decreases, C_{ISL} increases, therefore:
